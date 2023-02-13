@@ -7,7 +7,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Auction is Ownable, IERC721Receiver {
-    event NewHighestBid(address indexed bidder, uint256 bid);
+    event NewHighestBid(address indexed bidder, uint256 indexed bid);
 
     error WithdrawComplete();
     error AuctionRunning();
