@@ -1,0 +1,33 @@
+{
+  "name": "auction-contract",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test",
+    "coverage": "npx hardhat coverage",
+    "compile": "npx hardhat compile",
+    "deploy:goerli": "npx hardhat run scripts/deploy.js --network goerli",
+    "deploy:mainnet": "npx hardhat run scripts/deploy.js --network ethereum"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BuiltByFrancis/auction-contract.git"
+  },
+  "keywords": [],
+  "author": "BuiltByFrancis",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/BuiltByFrancis/auction-contract/issues"
+  },
+  "homepage": "https://github.com/BuiltByFrancis/auction-contract#readme",
+  "devDependencies": {
+    "@builtbyfrancis/flagroles": "^1.0.2",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.0",
+    "@openzeppelin/contracts": "^4.8.1",
+    "closedsea": "^1.0.0",
+    "dotenv": "^16.0.3",
+    "erc721a": "^4.2.3",
+    "hardhat": "^2.12.7"
+  }
+}
