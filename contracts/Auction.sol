@@ -7,27 +7,29 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Auction is Ownable, IERC721Receiver {
-    event NewHighestBid(address indexed bidder, uint256 indexed bid);
-
     error WithdrawComplete();
     error AuctionRunning();
     error AuctionClosed();
     error BidTooLow();
 
-    uint256 private constant _PRIZE_ID = 1;
+    event LeaderboardShuffled();
 
-    uint256 public constant TICK_SIZE = 1000 * 10**18;
-    uint64 public constant TIME_EXTENSION = 60;
+    struct AuctionData {
+        address owner;
+        uint96 bid;
+    }
+
+    uint64 public endTimestamp;
+    uint64 public timeExtension;
+    uint96 public minBid;
+    uint32 public bidCount;
+
+    // TODO: Clean up above, check for struct savings, add owner functions to edit
 
     IERC20 public immutable tokenContract;
     IERC721 public immutable rewardContract;
 
-    struct AuctionData {
-        address winner;
-        uint32 ticks;
-        uint64 endTimestamp;
-    }
-    AuctionData public auctionData;
+    mapping(uint256 => AuctionData) public topSix;
 
     constructor(
         IERC20 _tokenContract,
@@ -37,49 +39,80 @@ contract Auction is Ownable, IERC721Receiver {
         tokenContract = _tokenContract;
         rewardContract = _rewardContact;
 
-        auctionData.endTimestamp = _endTimestamp;
+        endTimestamp = _endTimestamp;
     }
 
-    function winnerAmount() external view returns (uint256) {
-        return _calcAmount(auctionData.ticks);
-    }
+    // TODO: probs refactor, maybe
+    function createBid(uint96 _bid) external {
+        AuctionData memory data = topSix[6];
 
-    function bid(uint32 ticks) external {
-        AuctionData memory data = auctionData;
+        if (block.timestamp >= endTimestamp) revert AuctionClosed();
 
-        if (block.timestamp >= data.endTimestamp) revert AuctionClosed();
+        if (_bid <= data.bid || _bid - data.bid < minBid) revert BidTooLow();
+        if (!tokenContract.transferFrom(msg.sender, address(this), _bid))
+            revert();
 
-        uint256 currentAmount = _calcAmount(data.ticks);
-        uint256 amount = _calcAmount(ticks);
+        if (!(data.owner == address(0) || tokenContract.transfer(data.owner, data.bid))) revert();
 
-        if (amount <= currentAmount) revert BidTooLow();
-        if (!tokenContract.transferFrom(msg.sender, address(this), amount)) revert();
-
-        if (!(data.winner == address(0) || tokenContract.transfer(data.winner, currentAmount))) revert();
-
-        if (data.endTimestamp - block.timestamp <= TIME_EXTENSION) {
+        if (endTimestamp - block.timestamp <= timeExtension) {
             unchecked {
-                data.endTimestamp += TIME_EXTENSION;
+                endTimestamp += timeExtension;
             }
         }
 
-        data.winner = msg.sender;
-        data.ticks = ticks;
+        uint32 _bidCount = bidCount;
+        if (_bidCount < 6) {
+            unchecked {
+                ++_bidCount;
+            }
+            bidCount = _bidCount;
+        }
 
-        auctionData = data;
+        data.owner = msg.sender;
+        data.bid = _bid;
+     
+        for (; _bidCount > 1;) {
+            AuctionData memory _data = topSix[_bidCount - 1];
 
-        emit NewHighestBid(msg.sender, amount);
+            if (data.bid <= _data.bid) {
+                break;
+            }
+
+            topSix[_bidCount] = _data;
+
+            unchecked {
+                --_bidCount;
+            }
+        }
+
+        topSix[_bidCount] = data;
+
+        emit LeaderboardShuffled();
     }
 
+    // TODO: Write this
+    function increaseBid(uint96 _bid) external {
+        // Search backward to find bidder
+        // When found increase
+        // Keep searching until new spot
+        // Shuffle down along the way
+        // Revert if we get to top and sender is not present
+
+        // Questions: Different min change?
+    }
+
+    // TODO: Write this
     function withdraw() external {
-        AuctionData memory data = auctionData;
+        // if (block.timestamp < endTimestamp) revert AuctionRunning();
+        // if (rewardContract.balanceOf(address(this)) == 0)
+        //     revert WithdrawComplete();
 
-        if (block.timestamp < data.endTimestamp) revert AuctionRunning();
-        if (data.winner == address(0)) revert WithdrawComplete();
-
-        delete auctionData;
-
-        rewardContract.transferFrom(address(this), data.winner, _PRIZE_ID);
+        // rewardContract.transferFrom(address(this), topSix[1].owner, 1);
+        // rewardContract.transferFrom(address(this), topSix[2].owner, 2);
+        // rewardContract.transferFrom(address(this), topSix[3].owner, 3);
+        // rewardContract.transferFrom(address(this), topSix[4].owner, 4);
+        // rewardContract.transferFrom(address(this), topSix[5].owner, 5);
+        // rewardContract.transferFrom(address(this), topSix[6].owner, 6);
     }
 
     function withdrawContractBalance(address to) external onlyOwner {
@@ -87,12 +120,8 @@ contract Auction is Ownable, IERC721Receiver {
         if (!tokenContract.transfer(to, balance)) revert();
     }
 
-    function withdrawPrize(address to) external onlyOwner {
-        rewardContract.transferFrom(address(this), to, _PRIZE_ID);
-    }
-
-    function _calcAmount(uint256 ticks) internal pure returns (uint256) {
-        return ticks * TICK_SIZE;
+    function withdrawPrize(address to, uint256 id) external onlyOwner {
+        rewardContract.transferFrom(address(this), to, id);
     }
 
     function onERC721Received(
