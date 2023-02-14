@@ -5,10 +5,12 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract Auction is Ownable, IERC721Receiver {
     error WithdrawComplete();
     error AuctionRunning();
+    error NotEnoughBids();
     error AuctionClosed();
     error BidTooLow();
 
@@ -19,17 +21,19 @@ contract Auction is Ownable, IERC721Receiver {
         uint96 bid;
     }
 
-    uint64 public endTimestamp;
-    uint64 public timeExtension;
-    uint96 public minBid;
-    uint32 public bidCount;
-
-    // TODO: Clean up above, check for struct savings, add owner functions to edit
-
+    uint256 public constant LEADERBOARD_SIZE = 6;
+    uint256 private constant PACKED_REWARDS = 1 + (2 << 8) + (3 << 16) + (4 << 24) + (5 << 32) + (6 << 40);
+    uint256 private constant REWARD_MASK = (1 << 8) - 1;
+    
     IERC20 public immutable tokenContract;
     IERC721 public immutable rewardContract;
 
-    mapping(uint256 => AuctionData) public topSix;
+    uint32 public bidCount;
+    uint64 public endTimestamp;
+    uint64 public timeExtension = 60;
+    uint96 public minBid = 1000 * 10**18;
+
+    mapping(uint256 => AuctionData) public leaderboard;
 
     constructor(
         IERC20 _tokenContract,
@@ -42,26 +46,30 @@ contract Auction is Ownable, IERC721Receiver {
         endTimestamp = _endTimestamp;
     }
 
-    // TODO: probs refactor, maybe
-    function createBid(uint96 _bid) external {
-        AuctionData memory data = topSix[6];
-
+    modifier isRunning() {
         if (block.timestamp >= endTimestamp) revert AuctionClosed();
+        _;
+    }
 
-        if (_bid <= data.bid || _bid - data.bid < minBid) revert BidTooLow();
-        if (!tokenContract.transferFrom(msg.sender, address(this), _bid))
-            revert();
-
-        if (!(data.owner == address(0) || tokenContract.transfer(data.owner, data.bid))) revert();
-
+    modifier extendsTime() {
         if (endTimestamp - block.timestamp <= timeExtension) {
             unchecked {
                 endTimestamp += timeExtension;
             }
         }
+        _;
+    }
+
+    function createBid(uint96 _bid) external isRunning extendsTime {
+        AuctionData memory data = leaderboard[LEADERBOARD_SIZE];
+
+        if (_bid <= data.bid || _bid - data.bid < minBid) revert BidTooLow();
+        if (!tokenContract.transferFrom(msg.sender, address(this), _bid)) revert();
+
+        if (!(data.owner == address(0) || tokenContract.transfer(data.owner, data.bid))) revert();
 
         uint32 _bidCount = bidCount;
-        if (_bidCount < 6) {
+        if (_bidCount < LEADERBOARD_SIZE) {
             unchecked {
                 ++_bidCount;
             }
@@ -72,20 +80,20 @@ contract Auction is Ownable, IERC721Receiver {
         data.bid = _bid;
      
         for (; _bidCount > 1;) {
-            AuctionData memory _data = topSix[_bidCount - 1];
+            AuctionData memory _data = leaderboard[_bidCount - 1];
 
             if (data.bid <= _data.bid) {
                 break;
             }
 
-            topSix[_bidCount] = _data;
+            leaderboard[_bidCount] = _data;
 
             unchecked {
                 --_bidCount;
             }
         }
 
-        topSix[_bidCount] = data;
+        leaderboard[_bidCount] = data;
 
         emit LeaderboardShuffled();
     }
@@ -101,18 +109,15 @@ contract Auction is Ownable, IERC721Receiver {
         // Questions: Different min change?
     }
 
-    // TODO: Write this
     function withdraw() external {
-        // if (block.timestamp < endTimestamp) revert AuctionRunning();
-        // if (rewardContract.balanceOf(address(this)) == 0)
-        //     revert WithdrawComplete();
+        if (block.timestamp < endTimestamp) revert AuctionRunning();
+        if (bidCount < LEADERBOARD_SIZE) revert NotEnoughBids(); 
+        if (rewardContract.balanceOf(address(this)) == 0)
+            revert WithdrawComplete();
 
-        // rewardContract.transferFrom(address(this), topSix[1].owner, 1);
-        // rewardContract.transferFrom(address(this), topSix[2].owner, 2);
-        // rewardContract.transferFrom(address(this), topSix[3].owner, 3);
-        // rewardContract.transferFrom(address(this), topSix[4].owner, 4);
-        // rewardContract.transferFrom(address(this), topSix[5].owner, 5);
-        // rewardContract.transferFrom(address(this), topSix[6].owner, 6);
+        for (uint256 i = 0; i < LEADERBOARD_SIZE; i++) {
+            rewardContract.transferFrom(address(this), leaderboard[i + 1].owner, (PACKED_REWARDS >> i * 8) & REWARD_MASK);     
+        }
     }
 
     function withdrawContractBalance(address to) external onlyOwner {
@@ -122,6 +127,18 @@ contract Auction is Ownable, IERC721Receiver {
 
     function withdrawPrize(address to, uint256 id) external onlyOwner {
         rewardContract.transferFrom(address(this), to, id);
+    }
+
+    function setEndTimestamp(uint64 _endTimestamp) external onlyOwner {
+        endTimestamp = _endTimestamp;
+    }
+
+    function setTimeExtension(uint64 _timeExtension) external onlyOwner {
+        timeExtension = _timeExtension;
+    }
+
+    function setMinBid(uint96 _minBid) external onlyOwner {
+        minBid = _minBid;
     }
 
     function onERC721Received(
