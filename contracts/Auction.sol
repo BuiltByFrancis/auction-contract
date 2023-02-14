@@ -10,6 +10,7 @@ import "hardhat/console.sol";
 contract Auction is Ownable, IERC721Receiver {
     error WithdrawComplete();
     error AuctionRunning();
+    error BidderNotFound();
     error NotEnoughBids();
     error AuctionClosed();
     error BidTooLow();
@@ -98,15 +99,37 @@ contract Auction is Ownable, IERC721Receiver {
         emit LeaderboardShuffled();
     }
 
-    // TODO: Write this
-    function increaseBid(uint96 _bid) external {
-        // Search backward to find bidder
-        // When found increase
-        // Keep searching until new spot
-        // Shuffle down along the way
-        // Revert if we get to top and sender is not present
+    function increaseBid(uint96 _bid) external isRunning extendsTime {
+        if (_bid < minBid) revert BidTooLow();
 
-        // Questions: Different min change?
+        uint32 _bidCount = bidCount;
+        AuctionData memory data;
+        for (; _bidCount > 0;) {
+            AuctionData memory _data = leaderboard[_bidCount];
+
+            if(data.owner == msg.sender) {
+                if(data.bid > _data.bid) {
+                    leaderboard[_bidCount + 1] = _data;
+                } else {
+                    break;
+                }
+            }
+
+            if(_data.owner == msg.sender) {
+                data.owner = _data.owner;
+                data.bid = _data.bid + _bid;
+            }
+
+            unchecked {
+                --_bidCount;
+            }
+        }
+
+        if(data.owner == address(0)) revert BidderNotFound();
+
+        leaderboard[_bidCount + 1] = data;
+
+        emit LeaderboardShuffled();
     }
 
     function withdraw() external {

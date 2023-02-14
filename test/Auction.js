@@ -140,6 +140,23 @@ describe("Auction", function () {
             expect(data2.bid).to.equal(config.tick);
         });
 
+        it("Bid same", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick);
+            await contracts.auction.connect(wallets.bidders[1]).createBid(config.tick);
+
+            const bidCount = await contracts.auction.bidCount();
+            const data1 = await contracts.auction.leaderboard(1);
+            const data2 = await contracts.auction.leaderboard(2);
+
+            expect(bidCount).to.equal(2);
+            expect(data1.owner).to.equal(wallets.bidders[0].address);
+            expect(data1.bid).to.equal(config.tick);
+            expect(data2.owner).to.equal(wallets.bidders[1].address);
+            expect(data2.bid).to.equal(config.tick);
+        });
+
         it("Bid below", async function () {
             const { contracts, wallets, config } = await loadFixture(deployAuction);
 
@@ -343,6 +360,145 @@ describe("Auction", function () {
         });
     });
 
+    describe("increaseBid", function () {
+        it("Increase Self", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.createBid(config.tick);
+            await contracts.auction.increaseBid(config.tick);
+
+            const bidCount = await contracts.auction.bidCount();
+            const data = await contracts.auction.leaderboard(1);
+
+            expect(bidCount).to.equal(1);
+            expect(data.owner).to.equal(wallets.owner.address);
+            expect(data.bid).to.equal(config.tick.mul(2));
+        });
+
+        it("Increase and swap", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick);
+            await contracts.auction.connect(wallets.bidders[1]).createBid(config.tick);
+            await contracts.auction.connect(wallets.bidders[1]).increaseBid(config.tick);
+
+            const bidCount = await contracts.auction.bidCount();
+            const data1 = await contracts.auction.leaderboard(1);
+            const data2 = await contracts.auction.leaderboard(2);
+
+            expect(bidCount).to.equal(2);
+            expect(data1.owner).to.equal(wallets.bidders[1].address);
+            expect(data1.bid).to.equal(config.tick.mul(2));
+            expect(data2.owner).to.equal(wallets.bidders[0].address);
+            expect(data2.bid).to.equal(config.tick);
+        });
+
+        it("Increase but stay", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick.mul(3));
+            await contracts.auction.connect(wallets.bidders[1]).createBid(config.tick);
+            await contracts.auction.connect(wallets.bidders[1]).increaseBid(config.tick);
+
+            const bidCount = await contracts.auction.bidCount();
+            const data1 = await contracts.auction.leaderboard(1);
+            const data2 = await contracts.auction.leaderboard(2);
+
+            expect(bidCount).to.equal(2);
+            expect(data1.owner).to.equal(wallets.bidders[0].address);
+            expect(data1.bid).to.equal(config.tick.mul(3));
+            expect(data2.owner).to.equal(wallets.bidders[1].address);
+            expect(data2.bid).to.equal(config.tick.mul(2));
+        });
+
+        it("Move all the way up", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            for (let i = 1; i <= config.leaderboardSize; i++) {
+                await contracts.auction.connect(wallets.bidders[i]).createBid(config.tick.mul(i));
+            }
+
+            await contracts.auction.connect(wallets.bidders[1]).increaseBid(config.tick.mul(config.leaderboardSize));
+
+            const bidCount = await contracts.auction.bidCount();
+            expect(bidCount).to.equal(config.leaderboardSize);
+
+            for (let i = config.leaderboardSize; i > 0; i--) {
+                const data = await contracts.auction.leaderboard(7 - i);
+                if (i == config.leaderboardSize) {
+                    expect(data.owner).to.equal(wallets.bidders[1].address);
+                    expect(data.bid).to.equal(config.tick.mul(config.leaderboardSize.add(1)));
+                } else {
+                    expect(data.owner).to.equal(wallets.bidders[i + 1].address);
+                    expect(data.bid).to.equal(config.tick.mul(i + 1));
+                }
+            }
+        });
+
+        it("Should emit the LeaderboardShuffled event", async function () {
+            const { contracts, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.createBid(config.tick);
+
+            await expect(contracts.auction.increaseBid(config.tick)).to.emit(contracts.auction, "LeaderboardShuffled");
+        });
+
+        it("Should extend the time if the bid is made in the threshold", async function () {
+            const { contracts, config } = await loadFixture(deployAuction);
+
+            const extension = await contracts.auction.timeExtension();
+
+            await contracts.auction.createBid(config.tick);
+
+            await time.increaseTo(config.endTime - extension);
+
+            await contracts.auction.increaseBid(config.tick);
+
+            expect(await contracts.auction.endTimestamp()).to.equal(extension.add(config.endTime));
+        });
+
+        it("Revert when auction is not running", async function () {
+            const { contracts, config } = await loadFixture(deployAuction);
+
+            await time.increaseTo(config.endTime);
+
+            await expect(contracts.auction.increaseBid(config.tick)).to.be.revertedWithCustomError(
+                contracts.auction,
+                "AuctionClosed"
+            );
+        });
+
+        it("Revert if bid is too low", async function () {
+            const { contracts } = await loadFixture(deployAuction);
+
+            const min = await contracts.auction.minBid();
+
+            await expect(contracts.auction.increaseBid(min.sub(1))).to.be.revertedWithCustomError(
+                contracts.auction,
+                "BidTooLow"
+            );
+        });
+
+        it("Revert if there are no bidders", async function () {
+            const { contracts, config } = await loadFixture(deployAuction);
+
+            await expect(contracts.auction.increaseBid(config.tick)).to.be.revertedWithCustomError(
+                contracts.auction,
+                "BidderNotFound"
+            );
+        });
+
+        it("Revert if the caller is not a bidder", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.createBid(config.tick);
+
+            await expect(
+                contracts.auction.connect(wallets.bidders[0]).increaseBid(config.tick)
+            ).to.be.revertedWithCustomError(contracts.auction, "BidderNotFound");
+        });
+    });
+
     describe("withdraw", function () {
         it("Sends the prize to each user in order", async function () {
             const { contracts, wallets, config } = await loadFixture(deployAuction);
@@ -357,13 +513,16 @@ describe("Auction", function () {
             expect(await contracts.nft.balanceOf(contracts.auction.address)).to.equal(0);
             for (let i = 1; i <= config.leaderboardSize; i++) {
                 expect(await contracts.nft.balanceOf(wallets.bidders[i].address)).to.equal(1);
-                expect(await contracts.nft.ownerOf(7-i)).to.equal(wallets.bidders[i].address);
+                expect(await contracts.nft.ownerOf(7 - i)).to.equal(wallets.bidders[i].address);
             }
         });
 
         it("Reverts when the auction is running", async function () {
             const { contracts } = await loadFixture(deployAuction);
-             await expect(contracts.auction.withdraw()).to.be.revertedWithCustomError(contracts.auction, "AuctionRunning");
+            await expect(contracts.auction.withdraw()).to.be.revertedWithCustomError(
+                contracts.auction,
+                "AuctionRunning"
+            );
         });
 
         it("Reverts when there are not enough bids", async function () {
@@ -371,7 +530,10 @@ describe("Auction", function () {
 
             await time.increaseTo(config.endTime);
 
-            await expect(contracts.auction.withdraw()).to.be.revertedWithCustomError(contracts.auction, "NotEnoughBids");
+            await expect(contracts.auction.withdraw()).to.be.revertedWithCustomError(
+                contracts.auction,
+                "NotEnoughBids"
+            );
         });
 
         it("Reverts when called twice", async function () {
@@ -384,7 +546,10 @@ describe("Auction", function () {
             await time.increaseTo(config.endTime);
             await contracts.auction.withdraw();
 
-            await expect(contracts.auction.withdraw()).to.be.revertedWithCustomError(contracts.auction, "WithdrawComplete");
+            await expect(contracts.auction.withdraw()).to.be.revertedWithCustomError(
+                contracts.auction,
+                "WithdrawComplete"
+            );
         });
     });
 
@@ -455,9 +620,9 @@ describe("Auction", function () {
         it("should only be callable as the contract owner", async function () {
             const { contracts, wallets } = await loadFixture(deployAuction);
 
-            await expect(
-                contracts.auction.connect(wallets.bidders[0]).setEndTimestamp(0)
-            ).to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(contracts.auction.connect(wallets.bidders[0]).setEndTimestamp(0)).to.be.revertedWith(
+                "Ownable: caller is not the owner"
+            );
         });
     });
 
@@ -473,9 +638,9 @@ describe("Auction", function () {
         it("should only be callable as the contract owner", async function () {
             const { contracts, wallets } = await loadFixture(deployAuction);
 
-            await expect(
-                contracts.auction.connect(wallets.bidders[0]).setTimeExtension(0)
-            ).to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(contracts.auction.connect(wallets.bidders[0]).setTimeExtension(0)).to.be.revertedWith(
+                "Ownable: caller is not the owner"
+            );
         });
     });
 
@@ -491,9 +656,9 @@ describe("Auction", function () {
         it("should only be callable as the contract owner", async function () {
             const { contracts, wallets } = await loadFixture(deployAuction);
 
-            await expect(
-                contracts.auction.connect(wallets.bidders[0]).setMinBid(0)
-            ).to.be.revertedWith("Ownable: caller is not the owner");
+            await expect(contracts.auction.connect(wallets.bidders[0]).setMinBid(0)).to.be.revertedWith(
+                "Ownable: caller is not the owner"
+            );
         });
     });
 
