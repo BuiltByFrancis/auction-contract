@@ -22,7 +22,8 @@ contract Auction is Ownable, IERC721Receiver {
         uint96 bid;
     }
 
-    uint256 public constant LEADERBOARD_SIZE = 6;
+    uint256 public constant LEADERBOARD_SIZE = 20;
+    uint256 public constant REWARDS_SIZE = 6;
     uint256 private constant PACKED_REWARDS = 1 + (101 << 8) + (100 << 16) + (99 << 24) + (98 << 32) + (97 << 40);
     uint256 private constant REWARD_MASK = (1 << 8) - 1;
     
@@ -140,7 +141,13 @@ contract Auction is Ownable, IERC721Receiver {
             revert WithdrawComplete();
 
         for (uint256 i = 0; i < LEADERBOARD_SIZE; i++) {
-            rewardContract.transferFrom(address(this), leaderboard[i + 1].owner, (PACKED_REWARDS >> i * 8) & REWARD_MASK);     
+            AuctionData memory _data = leaderboard[i + 1];
+            if(i < REWARDS_SIZE) {
+                rewardContract.transferFrom(address(this), _data.owner, (PACKED_REWARDS >> i * 8) & REWARD_MASK);     
+            }
+            else {
+                tokenContract.transfer(_data.owner, _data.bid);
+            }
         }
     }
 
