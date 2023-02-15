@@ -62,6 +62,15 @@ contract Auction is Ownable, IERC721Receiver {
         _;
     }
 
+    function fetchLeaderboard() external view returns(AuctionData[LEADERBOARD_SIZE] memory result) {
+        for (uint256 i = 0; i < LEADERBOARD_SIZE;) {
+            result[i] = leaderboard[i + 1];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
     function createBid(uint96 _bid) external isRunning extendsTime {
         AuctionData memory data = leaderboard[LEADERBOARD_SIZE];
 

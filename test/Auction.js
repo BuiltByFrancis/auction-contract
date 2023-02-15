@@ -61,7 +61,7 @@ describe("Auction", function () {
                 endTime,
                 tick: ethers.utils.parseEther("1000"),
                 initialBalance,
-                leaderboardIndexor: Number(ethers.utils.formatUnits(leaderboardSize, 0)) + 1,
+                leaderboardIndexor: Number(ethers.utils.formatUnits(leaderboardSize, 0)),
                 leaderboardSize,
                 rewardSize,
             },
@@ -201,10 +201,11 @@ describe("Auction", function () {
             }
 
             const bidCount = await contracts.auction.bidCount();
-
             expect(bidCount).to.equal(config.leaderboardSize);
+
+            const leaderboard = await contracts.auction.fetchLeaderboard();
             for (let i = config.leaderboardSize; i > 0; i--) {
-                const data = await contracts.auction.leaderboard(config.leaderboardIndexor - i);
+                const data = leaderboard[config.leaderboardIndexor - i];
                 expect(data.owner).to.equal(wallets.bidders[i].address);
                 expect(data.bid).to.equal(config.tick.mul(i));
             }
@@ -218,10 +219,11 @@ describe("Auction", function () {
             }
 
             const bidCount = await contracts.auction.bidCount();
-
             expect(bidCount).to.equal(config.leaderboardSize);
+
+            const leaderboard = await contracts.auction.fetchLeaderboard();
             for (let i = config.leaderboardSize; i > 0; i--) {
-                const data = await contracts.auction.leaderboard(config.leaderboardIndexor - i);
+                const data = leaderboard[config.leaderboardIndexor - i];
                 expect(data.owner).to.equal(wallets.bidders[i].address);
                 expect(data.bid).to.equal(config.tick.mul(i));
             }
@@ -234,16 +236,19 @@ describe("Auction", function () {
                 await contracts.auction.connect(wallets.bidders[i]).createBid(config.tick.mul(i));
             }
 
-            await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick.mul(config.leaderboardIndexor));
+            const top = config.leaderboardIndexor + 1;
+            await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick.mul(top));
             const bidCount = await contracts.auction.bidCount();
-
             expect(bidCount).to.equal(config.leaderboardSize);
+
+            const leaderboard = await contracts.auction.fetchLeaderboard();
             for (let i = config.leaderboardSize; i > 0; i--) {
-                const current = config.leaderboardIndexor - i;
-                const data = await contracts.auction.leaderboard(current);
+                const index = config.leaderboardIndexor - i;
+                const current = index + 1;
+                const data = leaderboard[index];
                 if (current == 1) {
                     expect(data.owner).to.equal(wallets.bidders[0].address);
-                    expect(data.bid).to.equal(config.tick.mul(config.leaderboardIndexor));
+                    expect(data.bid).to.equal(config.tick.mul(top));
                 } else {
                     expect(data.owner).to.equal(wallets.bidders[i + 1].address);
                     expect(data.bid).to.equal(config.tick.mul(i + 1));
@@ -263,11 +268,13 @@ describe("Auction", function () {
 
             await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick.mul(price + 2));
             const bidCount = await contracts.auction.bidCount();
-
             expect(bidCount).to.equal(config.leaderboardSize);
+
+            const leaderboard = await contracts.auction.fetchLeaderboard();
             for (let i = config.leaderboardSize; i > 0; i--) {
-                const current = config.leaderboardIndexor - i;
-                const data = await contracts.auction.leaderboard(current);
+                const index = config.leaderboardIndexor - i;
+                const current = index + 1;
+                const data = leaderboard[index];
                 if (current == placement) {
                     expect(data.owner).to.equal(wallets.bidders[0].address);
                     expect(data.bid).to.equal(config.tick.mul(price + 2));
@@ -290,11 +297,13 @@ describe("Auction", function () {
 
             await contracts.auction.connect(wallets.bidders[0]).createBid(config.tick.mul(2));
             const bidCount = await contracts.auction.bidCount();
-
             expect(bidCount).to.equal(config.leaderboardSize);
+
+            const leaderboard = await contracts.auction.fetchLeaderboard();
             for (let i = config.leaderboardSize; i > 0; i--) {
-                const current = config.leaderboardIndexor - i;
-                const data = await contracts.auction.leaderboard(current);
+                const index = config.leaderboardIndexor - i;
+                const current = index + 1;
+                const data = leaderboard[index];
                 if (current == config.leaderboardSize) {
                     expect(data.owner).to.equal(wallets.bidders[0].address);
                     expect(data.bid).to.equal(config.tick.mul(2));
@@ -445,8 +454,9 @@ describe("Auction", function () {
             const bidCount = await contracts.auction.bidCount();
             expect(bidCount).to.equal(config.leaderboardSize);
 
+            const leaderboard = await contracts.auction.fetchLeaderboard();
             for (let i = config.leaderboardSize; i > 0; i--) {
-                const data = await contracts.auction.leaderboard(config.leaderboardIndexor - i);
+                const data = leaderboard[config.leaderboardIndexor - i];
                 if (i == config.leaderboardSize) {
                     expect(data.owner).to.equal(wallets.bidders[1].address);
                     expect(data.bid).to.equal(config.tick.mul(config.leaderboardSize.add(1)));

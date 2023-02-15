@@ -7,6 +7,7 @@ const {
   GOERLI_KEY,
   MAINNET_KEY,
   ETHERSCAN_API_KEY,
+  COINMARKETCAP_API_KEY,
 } = process.env;
 
 module.exports = {
@@ -38,4 +39,7 @@ module.exports = {
   etherscan: {
     apiKey: `${ETHERSCAN_API_KEY}`,
   },
+  gasReporter: {
+    coinmarketcap: `${COINMARKETCAP_API_KEY}`,
+  }
 };
