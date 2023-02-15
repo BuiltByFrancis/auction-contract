@@ -3,17 +3,17 @@ const { ethers } = require("hardhat");
 
 const TokenAddress = {
     1: "",
-    5: "0x34D7be09C299f2364212c96335467f4dA01b35C7",
+    5: "0x1380DE70EB788b210a45f6823adB95042177c304",
 };
 
 const RewardAddress = {
     1: "",
-    5: "0x3446D487135A59125A27180842a5Bb1899947247",
+    5: "0xFe6B30c327bC0eBa6C59744C0e2D3f41a6B7482E",
 };
 
 const AuctionAddress = {
     1: "",
-    5: "0x79bA52C05b4759c6c65361FE3336C4Ea660D97Ff",
+    5: "0x4e9e83FEB836CA7Fa59397AC94c45A306C58f9Fb",
 };
 
 async function main() {
