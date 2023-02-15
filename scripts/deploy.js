@@ -13,7 +13,7 @@ const RewardAddress = {
 
 const AuctionAddress = {
     1: "",
-    5: "0xDB145c4B17bD109c04488B52709f9D972a73464D",
+    5: "",
 };
 
 async function main() {

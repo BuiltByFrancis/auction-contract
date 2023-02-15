@@ -101,6 +101,7 @@ contract Auction is Ownable, IERC721Receiver {
 
     function increaseBid(uint96 _bid) external isRunning extendsTime {
         if (_bid < minBid) revert BidTooLow();
+        if (!tokenContract.transferFrom(msg.sender, address(this), _bid)) revert();
 
         uint32 _bidCount = bidCount;
         AuctionData memory data;

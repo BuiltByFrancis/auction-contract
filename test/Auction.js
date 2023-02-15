@@ -465,6 +465,28 @@ describe("Auction", function () {
             expect(await contracts.auction.endTimestamp()).to.equal(extension.add(config.endTime));
         });
 
+        it("Should revert if the caller has insufficient balance", async function () {
+            const { contracts, wallets, config } = await loadFixture(deployAuction);
+
+            await contracts.auction.createBid(config.tick);
+            await contracts.token
+                .connect(wallets.bidders[0])
+                .increaseAllowance(contracts.auction.address, config.tick.mul(100));
+
+            await expect(
+                contracts.auction.connect(wallets.bidders[0]).increaseBid(config.tick.mul(100))
+            ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+        });
+
+        it("Should revert if the token transfer fails from caller", async function () {
+            const { contracts, config } = await loadFixture(deployBrokenTokenAuction);
+
+            await contracts.auction.createBid(config.tick);
+            await contracts.token.setTransferFromResult(false);
+
+            await expect(contracts.auction.increaseBid(config.tick)).to.be.revertedWithoutReason();
+        });
+
         it("Revert when auction is not running", async function () {
             const { contracts, config } = await loadFixture(deployAuction);
 
