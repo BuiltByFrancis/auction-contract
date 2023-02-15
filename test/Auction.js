@@ -2,6 +2,8 @@ const { time, loadFixture } = require("@nomicfoundation/hardhat-network-helpers"
 const { expect } = require("chai");
 
 const ONE_HOUR_IN_SECS = 60 * 60;
+const mintAmount = 101;
+const prizes = [1, 101, 100, 99, 98, 97];
 
 describe("Auction", function () {
     async function deployAuction() {
@@ -31,7 +33,10 @@ describe("Auction", function () {
         const leaderboardSize = await auction.LEADERBOARD_SIZE();
 
         await token.increaseAllowance(auction.address, initialBalance);
-        await nft.mintOwner(auction.address, leaderboardSize);
+        await nft.mintOwner(owner.address, mintAmount);
+        for (let prize of prizes) {
+            await nft.transferFrom(owner.address, auction.address, prize);
+        }
 
         return {
             contracts: {
@@ -73,7 +78,10 @@ describe("Auction", function () {
         const leaderboardSize = await auction.LEADERBOARD_SIZE();
 
         await token.increaseAllowance(auction.address, initialBalance);
-        await nft.mintOwner(auction.address, leaderboardSize);
+        await nft.mintOwner(owner.address, mintAmount);
+        for (let prize of prizes) {
+            await nft.transferFrom(owner.address, auction.address, prize);
+        }
 
         return {
             contracts: {
@@ -513,7 +521,9 @@ describe("Auction", function () {
             expect(await contracts.nft.balanceOf(contracts.auction.address)).to.equal(0);
             for (let i = 1; i <= config.leaderboardSize; i++) {
                 expect(await contracts.nft.balanceOf(wallets.bidders[i].address)).to.equal(1);
-                expect(await contracts.nft.ownerOf(7 - i)).to.equal(wallets.bidders[i].address);
+                expect(await contracts.nft.ownerOf(prizes[config.leaderboardSize - i])).to.equal(
+                    wallets.bidders[i].address
+                );
             }
         });
 

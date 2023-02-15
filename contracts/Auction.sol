@@ -23,7 +23,7 @@ contract Auction is Ownable, IERC721Receiver {
     }
 
     uint256 public constant LEADERBOARD_SIZE = 6;
-    uint256 private constant PACKED_REWARDS = 1 + (2 << 8) + (3 << 16) + (4 << 24) + (5 << 32) + (6 << 40);
+    uint256 private constant PACKED_REWARDS = 1 + (101 << 8) + (100 << 16) + (99 << 24) + (98 << 32) + (97 << 40);
     uint256 private constant REWARD_MASK = (1 << 8) - 1;
     
     IERC20 public immutable tokenContract;
