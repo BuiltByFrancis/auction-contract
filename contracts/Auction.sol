@@ -24,6 +24,7 @@ contract Auction is Ownable, IERC721Receiver {
 
     uint256 public constant START_TIMESTAMP = 1677028483;//1677177000;
     uint256 public constant LEADERBOARD_SIZE = 20;
+    uint256 public constant LEADERBOARD_MAX = 19;
     uint256 public constant REWARDS_SIZE = 6;
     uint256 private constant PACKED_REWARDS = 0 + (1 << 8) + (3 << 16) + (6 << 24) + (14 << 32) + (40 << 40);
     uint256 private constant REWARD_MASK = (1 << 8) - 1;
@@ -75,7 +76,7 @@ contract Auction is Ownable, IERC721Receiver {
     }
 
     function createBid(uint96 _bid) external isRunning extendsTime {
-        AuctionData memory data = leaderboard[LEADERBOARD_SIZE - 1];
+        AuctionData memory data = leaderboard[LEADERBOARD_MAX];
 
         if (_bid <= data.bid || _bid - data.bid < minBid) revert BidTooLow();
         if (!tokenContract.transferFrom(msg.sender, address(this), _bid)) revert();
