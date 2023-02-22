@@ -67,7 +67,7 @@ contract Auction is Ownable, IERC721Receiver {
 
     function fetchLeaderboard() external view returns(AuctionData[LEADERBOARD_SIZE] memory result) {
         for (uint256 i = 0; i < LEADERBOARD_SIZE;) {
-            result[i] = leaderboard[i + 1];
+            result[i] = leaderboard[i];
             unchecked {
                 ++i;
             }
@@ -75,7 +75,7 @@ contract Auction is Ownable, IERC721Receiver {
     }
 
     function createBid(uint96 _bid) external isRunning extendsTime {
-        AuctionData memory data = leaderboard[LEADERBOARD_SIZE];
+        AuctionData memory data = leaderboard[LEADERBOARD_SIZE - 1];
 
         if (_bid <= data.bid || _bid - data.bid < minBid) revert BidTooLow();
         if (!tokenContract.transferFrom(msg.sender, address(this), _bid)) revert();
@@ -93,7 +93,7 @@ contract Auction is Ownable, IERC721Receiver {
         data.owner = msg.sender;
         data.bid = _bid;
      
-        for (; _bidCount > 1;) {
+        for (; _bidCount > 0;) {
             AuctionData memory _data = leaderboard[_bidCount - 1];
 
             if (data.bid <= _data.bid) {
@@ -119,11 +119,11 @@ contract Auction is Ownable, IERC721Receiver {
         uint32 _bidCount = bidCount;
         AuctionData memory data;
         for (; _bidCount > 0;) {
-            AuctionData memory _data = leaderboard[_bidCount];
+            AuctionData memory _data = leaderboard[_bidCount - 1];
 
             if(data.owner == msg.sender) {
                 if(data.bid > _data.bid) {
-                    leaderboard[_bidCount + 1] = _data;
+                    leaderboard[_bidCount] = _data;
                 } else {
                     break;
                 }
@@ -141,7 +141,7 @@ contract Auction is Ownable, IERC721Receiver {
 
         if(data.owner == address(0)) revert BidderNotFound();
 
-        leaderboard[_bidCount + 1] = data;
+        leaderboard[_bidCount] = data;
 
         emit LeaderboardShuffled();
     }
@@ -152,13 +152,16 @@ contract Auction is Ownable, IERC721Receiver {
         if (rewardContract.balanceOf(address(this)) == 0)
             revert WithdrawComplete();
 
-        for (uint256 i = 0; i < LEADERBOARD_SIZE; i++) {
-            AuctionData memory _data = leaderboard[i + 1];
+        for (uint256 i = 0; i < LEADERBOARD_SIZE;) {
+            AuctionData memory _data = leaderboard[i];
             if(i < REWARDS_SIZE) {
                 rewardContract.transferFrom(address(this), _data.owner, (PACKED_REWARDS >> i * 8) & REWARD_MASK);     
             }
             else {
                 tokenContract.transfer(_data.owner, _data.bid);
+            }
+            unchecked {
+                ++i;
             }
         }
     }
