@@ -3,17 +3,17 @@ const { ethers } = require("hardhat");
 
 const TokenAddress = {
     1: "0x427A03Fb96D9A94A6727fbcfbBA143444090dd64",
-    5: "",
+    5: "0x3575BB3C035833C916E0700701e1d1087639AFD4",
 };
 
 const RewardAddress = {
     1: "0xB1cdf2bFaB043eA1D81d0A73b3b849EFAaC1d31a",
-    5: "",
+    5: "0x3E32C70294AE7865651236D195f1B6343aF5cE29",
 };
 
 const AuctionAddress = {
     1: "",
-    5: "",
+    5: "0xa6526f13BABD3E50EC3b92D71162710b1880fdD1",
 };
 
 async function main() {
@@ -36,7 +36,7 @@ async function DeployAuction(chainId) {
 
     const tokenAddress = TokenAddress[chainId];
     const rewardAddress = RewardAddress[chainId];
-    const endTimeStamp = 1676500493;
+    const endTimeStamp = 1677263400;
 
     const Auction = await ethers.getContractFactory("Auction");
     const auction = await Auction.deploy(tokenAddress, rewardAddress, endTimeStamp);

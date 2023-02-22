@@ -27,8 +27,6 @@ module.exports = {
     goerli: {
       url: `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_GOERLI_KEY}`,
       accounts: [`0x${GOERLI_KEY}`],
-      gas: 2100000,
-      gasPrice: 8000000000,
     },
     ethereum: {
       chainId: 1,
