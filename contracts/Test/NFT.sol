@@ -154,7 +154,7 @@ contract NFT is
     // #######################################################################################
 
     function _startTokenId() internal view virtual override returns (uint256) {
-        return 1;
+        return 0;
     }
 
     function _baseURI() internal view override returns (string memory) {

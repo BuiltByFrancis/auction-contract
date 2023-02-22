@@ -3,9 +3,8 @@ pragma solidity ^0.8.17;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import "hardhat/console.sol";
 
 contract Auction is Ownable, IERC721Receiver {
     error WithdrawComplete();
@@ -16,15 +15,17 @@ contract Auction is Ownable, IERC721Receiver {
     error BidTooLow();
 
     event LeaderboardShuffled();
+    event NewEndTimestamp(uint256 value);
 
     struct AuctionData {
         address owner;
         uint96 bid;
     }
 
+    uint256 public constant START_TIMESTAMP = 1677028483;//1677177000;
     uint256 public constant LEADERBOARD_SIZE = 20;
     uint256 public constant REWARDS_SIZE = 6;
-    uint256 private constant PACKED_REWARDS = 1 + (101 << 8) + (100 << 16) + (99 << 24) + (98 << 32) + (97 << 40);
+    uint256 private constant PACKED_REWARDS = 0 + (1 << 8) + (3 << 16) + (6 << 24) + (14 << 32) + (40 << 40);
     uint256 private constant REWARD_MASK = (1 << 8) - 1;
     
     IERC20 public immutable tokenContract;
@@ -49,7 +50,7 @@ contract Auction is Ownable, IERC721Receiver {
     }
 
     modifier isRunning() {
-        if (block.timestamp >= endTimestamp) revert AuctionClosed();
+        if (block.timestamp >= START_TIMESTAMP && block.timestamp >= endTimestamp) revert AuctionClosed();
         _;
     }
 
@@ -58,6 +59,8 @@ contract Auction is Ownable, IERC721Receiver {
             unchecked {
                 endTimestamp += timeExtension;
             }
+            
+            emit NewEndTimestamp(endTimestamp);
         }
         _;
     }
@@ -171,6 +174,7 @@ contract Auction is Ownable, IERC721Receiver {
 
     function setEndTimestamp(uint64 _endTimestamp) external onlyOwner {
         endTimestamp = _endTimestamp;
+        emit NewEndTimestamp(_endTimestamp);
     }
 
     function setTimeExtension(uint64 _timeExtension) external onlyOwner {

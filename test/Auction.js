@@ -3,7 +3,7 @@ const { expect } = require("chai");
 
 const ONE_HOUR_IN_SECS = 60 * 60;
 const mintAmount = 101;
-const prizes = [1, 101, 100, 99, 98, 97];
+const prizes = [0, 1, 3, 6, 14, 40];
 
 describe("Auction", function () {
     async function deployAuction() {
