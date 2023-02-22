@@ -2,18 +2,18 @@ const hre = require("hardhat");
 const { ethers } = require("hardhat");
 
 const TokenAddress = {
-    1: "",
-    5: "0x1380DE70EB788b210a45f6823adB95042177c304",
+    1: "0x427A03Fb96D9A94A6727fbcfbBA143444090dd64",
+    5: "",
 };
 
 const RewardAddress = {
-    1: "",
-    5: "0xFe6B30c327bC0eBa6C59744C0e2D3f41a6B7482E",
+    1: "0xB1cdf2bFaB043eA1D81d0A73b3b849EFAaC1d31a",
+    5: "",
 };
 
 const AuctionAddress = {
     1: "",
-    5: "0x4e9e83FEB836CA7Fa59397AC94c45A306C58f9Fb",
+    5: "",
 };
 
 async function main() {

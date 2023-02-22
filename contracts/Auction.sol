@@ -152,13 +152,16 @@ contract Auction is Ownable, IERC721Receiver {
         if (rewardContract.balanceOf(address(this)) == 0)
             revert WithdrawComplete();
 
-        for (uint256 i = 0; i < LEADERBOARD_SIZE; i++) {
+        for (uint256 i = 0; i < LEADERBOARD_SIZE;) {
             AuctionData memory _data = leaderboard[i + 1];
             if(i < REWARDS_SIZE) {
                 rewardContract.transferFrom(address(this), _data.owner, (PACKED_REWARDS >> i * 8) & REWARD_MASK);     
             }
             else {
                 tokenContract.transfer(_data.owner, _data.bid);
+            }
+            unchecked {
+                ++i;
             }
         }
     }
